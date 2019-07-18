@@ -19,9 +19,9 @@ import shutil
 import mimetypes
 import re
 
-__version__ = "0.1"
+__version__ = "0.2"
 __all__ = ["SimpleHTTPRequestHandler"]
-__author__ = "bones7456"
+__author__ = "bones7456,zhenx"
 __home_page__ = "http://li2z.cn/"
 
 try:
@@ -48,10 +48,29 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Serve a GET request."""
-        f = self.send_head()
-        if f:
-            self.copyfile(f, self.wfile)
+        if self.headers.getheader('Authorization') == None:
+            self.do_AUTHHEAD()
+            self.wfile.write('no auth header received')
+            pass
+        elif self.headers.getheader('Authorization') == 'Basic bWVkaWE6aW50ZWwxMjM=':
+            f = self.send_head()
+            if f:
+                self.copyfile(f, self.wfile)
             f.close()
+            self.wfile.write(self.headers.getheader('Authorization'))
+            self.wfile.write('authenticated!')
+            pass
+        else:
+            self.do_AUTHHEAD()
+            self.wfile.write(self.headers.getheader('Authorization'))
+            self.wfile.write('not authenticated')
+            pass
+
+    def do_AUTHHEAD(self):
+        self.send_response(401)
+        self.send_header('WWW-Authenticate', 'Basic realm=\"Test\"')
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
 
     def do_HEAD(self):
         """Serve a HEAD request."""
@@ -186,6 +205,7 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         except os.error:
             self.send_error(404, "No permission to list directory")
             return None
+        list = [x for x in list if x[0] != '.']
         list.sort(key=lambda a: a.lower())
         f = StringIO()
         displaypath = cgi.escape(urllib.unquote(self.path))
@@ -197,6 +217,9 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         f.write("<input name=\"file\" type=\"file\"/>")
         f.write("<input type=\"submit\" value=\"upload\"/></form>\n")
         f.write("<hr>\n<ul>\n")
+        if displaypath != '/':
+            f.write('<li><a href="%s">../</a>\n'
+                   % (urllib.quote('../')))
         for name in list:
             fullname = os.path.join(path, name)
             displayname = linkname = name
