@@ -79,32 +79,45 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             f.close()
 
     def do_POST(self):
-        """Serve a POST request."""
-        r, info = self.deal_post_data()
-        print r, info, "by: ", self.client_address
-        f = StringIO()
-        f.write('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-        f.write("<html>\n<title>Upload Result Page</title>\n")
-        f.write("<body>\n<h2>Upload Result Page</h2>\n")
-        f.write("<hr>\n")
-        if r:
-            f.write("<strong>Success:</strong>")
+        datas = self.rfile.readlines(int(self.headers['content-length']))
+        tag = str(datas[1].split("=")[-1].strip())
+        if 'dir' in tag:
+            displaypath = cgi.escape(urllib.unquote(self.path))
+            dirname = datas[3].strip()
+            if displaypath == '/':
+                path = dirname
+            else:
+                path = str(displaypath[1:])+'/'+dirname
+            if not os.path.exists(path) and path != '':
+                os.mkdir(path)
+            self.do_GET()
         else:
-            f.write("<strong>Failed:</strong>")
-        f.write(info)
-        f.write("<br><a href=\"%s\">back</a>" % self.headers['referer'])
-        f.write("<hr><small>Powered By: bones7456, check new version at ")
-        f.write("<a href=\"http://li2z.cn/?s=SimpleHTTPServerWithUpload\">")
-        f.write("here</a>.</small></body>\n</html>\n")
-        length = f.tell()
-        f.seek(0)
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.send_header("Content-Length", str(length))
-        self.end_headers()
-        if f:
-            self.copyfile(f, self.wfile)
-            f.close()
+            """Serve a POST request."""
+            r, info = self.deal_post_data()
+            print r, info, "by: ", self.client_address
+            f = StringIO()
+            f.write('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
+            f.write("<html>\n<title>Upload Result Page</title>\n")
+            f.write("<body>\n<h2>Upload Result Page</h2>\n")
+            f.write("<hr>\n")
+            if r:
+                f.write("<strong>Success:</strong>")
+            else:
+                f.write("<strong>Failed:</strong>")
+            f.write(info)
+            f.write("<br><a href=\"%s\">back</a>" % self.headers['referer'])
+            f.write("<hr><small>Powered By: bones7456, check new version at ")
+            f.write("<a href=\"http://li2z.cn/?s=SimpleHTTPServerWithUpload\">")
+            f.write("here</a>.</small></body>\n</html>\n")
+            length = f.tell()
+            f.seek(0)
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.send_header("Content-Length", str(length))
+            self.end_headers()
+            if f:
+                self.copyfile(f, self.wfile)
+                f.close()
 
     def deal_post_data(self):
         boundary = self.headers.plisttext.split("=")[1]
@@ -216,6 +229,9 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         f.write("<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
         f.write("<input name=\"file\" type=\"file\"/>")
         f.write("<input type=\"submit\" value=\"upload\"/></form>\n")
+        f.write("<form ENCTYPE=\"multipart/form-data\" method=\"post\">")
+        f.write("<input name=\"dir\" type=\"text\"/>")
+        f.write("<input type=\"submit\" value=\"mkdir\"/></form>\n")
         f.write("<hr>\n<ul>\n")
         if displaypath != '/':
             f.write('<li><a href="%s">../</a>\n'
