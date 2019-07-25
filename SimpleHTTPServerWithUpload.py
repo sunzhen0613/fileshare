@@ -79,45 +79,10 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             f.close()
 
     def do_POST(self):
-        datas = self.rfile.readlines(int(self.headers['content-length']))
-        tag = str(datas[1].split("=")[-1].strip())
-        if 'dir' in tag:
-            displaypath = cgi.escape(urllib.unquote(self.path))
-            dirname = datas[3].strip()
-            if displaypath == '/':
-                path = dirname
-            else:
-                path = str(displaypath[1:])+'/'+dirname
-            if not os.path.exists(path) and path != '':
-                os.mkdir(path)
-            self.do_GET()
-        else:
-            """Serve a POST request."""
-            r, info = self.deal_post_data()
-            print r, info, "by: ", self.client_address
-            f = StringIO()
-            f.write('<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">')
-            f.write("<html>\n<title>Upload Result Page</title>\n")
-            f.write("<body>\n<h2>Upload Result Page</h2>\n")
-            f.write("<hr>\n")
-            if r:
-                f.write("<strong>Success:</strong>")
-            else:
-                f.write("<strong>Failed:</strong>")
-            f.write(info)
-            f.write("<br><a href=\"%s\">back</a>" % self.headers['referer'])
-            f.write("<hr><small>Powered By: bones7456, check new version at ")
-            f.write("<a href=\"http://li2z.cn/?s=SimpleHTTPServerWithUpload\">")
-            f.write("here</a>.</small></body>\n</html>\n")
-            length = f.tell()
-            f.seek(0)
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.send_header("Content-Length", str(length))
-            self.end_headers()
-            if f:
-                self.copyfile(f, self.wfile)
-                f.close()
+        """Serve a POST request."""
+        r, info = self.deal_post_data()
+        print r, info, "by: ", self.client_address
+        self.do_GET()
 
     def deal_post_data(self):
         boundary = self.headers.plisttext.split("=")[1]
@@ -128,38 +93,52 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             return (False, "Content NOT begin with boundary")
         line = self.rfile.readline()
         remainbytes -= len(line)
-        fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line)
-        if not fn:
-            return (False, "Can't find out file name...")
-        path = self.translate_path(self.path)
-        fn = os.path.join(path, fn[0])
-        while os.path.exists(fn):
-            fn += "_"
-        line = self.rfile.readline()
-        remainbytes -= len(line)
-        line = self.rfile.readline()
-        remainbytes -= len(line)
-        try:
-            out = open(fn, 'wb')
-        except IOError:
-            return (False, "Can't create file to write, do you have permission to write?")
-
-        preline = self.rfile.readline()
-        remainbytes -= len(preline)
-        while remainbytes > 0:
+        tag = re.findall(r'Content-Disposition.*name="(.*)".*', line)
+        if 'dir' in tag:
+            displaypath = cgi.escape(urllib.unquote(self.path))
+            line = self.rfile.readline()
+            dirname = self.rfile.readline().strip()
+            if displaypath == '/':
+                path = dirname
+            else:
+                path = str(displaypath[1:])+'/'+dirname
+            if not os.path.exists(path) and path != '':
+                os.mkdir(path)
+                return (True, "Create a folder ...")
+            else:
+                return (False, "Folder is exists or folder name is null ...")
+        else:
+            fn = re.findall(r'Content-Disposition.*name="file"; filename="(.*)"', line)
+            if not fn[0]:
+                return (False, "Can't find out file name...")
+            path = self.translate_path(self.path)
+            fn = os.path.join(path, fn[0])
+            while os.path.exists(fn):
+                fn += "_"
             line = self.rfile.readline()
             remainbytes -= len(line)
-            if boundary in line:
-                preline = preline[0:-1]
-                if preline.endswith('\r'):
+            line = self.rfile.readline()
+            remainbytes -= len(line)
+            try:
+                out = open(fn, 'wb')
+            except IOError:
+                return (False, "Can't create file to write, do you have permission to write?")
+            preline = self.rfile.readline()
+            remainbytes -= len(preline)
+            while remainbytes > 0:
+                line = self.rfile.readline()
+                remainbytes -= len(line)
+                if boundary in line:
                     preline = preline[0:-1]
-                out.write(preline)
-                out.close()
-                return (True, "File '%s' upload success!" % fn)
-            else:
-                out.write(preline)
-                preline = line
-        return (False, "Unexpect Ends of data.")
+                    if preline.endswith('\r'):
+                        preline = preline[0:-1]
+                    out.write(preline)
+                    out.close()
+                    return (True, "File '%s' upload success!" % fn)
+                else:
+                    out.write(preline)
+                    preline = line
+            return (False, "Unexpect Ends of data.")
 
     def send_head(self):
         """Common code for GET and HEAD commands.
