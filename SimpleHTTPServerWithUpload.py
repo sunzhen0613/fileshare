@@ -56,7 +56,7 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             f = self.send_head()
             if f:
                 self.copyfile(f, self.wfile)
-            f.close()
+                f.close()
             self.wfile.write(self.headers.getheader('Authorization'))
             self.wfile.write('authenticated!')
             pass
