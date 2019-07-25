@@ -307,6 +307,8 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         '.py': 'text/plain',
         '.c': 'text/plain',
         '.h': 'text/plain',
+        '.log': 'text/plain',
+        '.txt': 'text/plain',
         })
 
 
